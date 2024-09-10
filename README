@@ -1,0 +1,66 @@
+Nume: Ureche Andreea-Maria
+Grupa: 322CC
+
+--------------------------TEMA1 PCOM-------------------------------
+Tema consta in implementarea componentei de dataplane a unui router.
+
+Implementare:
+Programul se ocupa de initializarea tabelei de rutare statica (structura pe baza
+caruia router-ul alege portul pe care sa emita un pachet) , precum si a tabelei de
+ARP statica. Am ales sa sortez ambele tabele , pentru o mai buna eficientizare.
+Cand router-ul primeste un pachet , verifica daca acesta este valid ,adica adresa MAC
+destinatie a pachetului corespunde cu adresa MAC a interfetei pe care a fost primit / adresa
+MAC destinatie este broadcast. In caz contar,pachetul este aruncat.
+
+Odata ce pachetul este validat, se inspecteaza ETHERNET header-ul pachetului
+pentru a cunoaste care este urmatorul antent din pachet : IPv4/ARP.
+Daca niciunul dintre acesta nu e prezent , pachetul este aruncat.
+
+->IPv4
+Daca pachetul primit este unul IPv4 ,va fi apelata functia 'sendIPv4' ,in care se realizeaza
+urmatoarele :
+-se extrage IP header-ul din pachet
+-se verifica checksum-ul folosind functia 'check_checksum',iar daca suma de control difera,
+se arunca pachetul
+-se verifica datele din header-ul IP,si se actualizeaza :
+    -Daca TTL este 0/1 , se trimite un mesaj ICMP "Time exceeded" la emitatorul pachetului
+     si se arunca pachetul
+    -TTL se decrementeaza
+    -Se actualizeaza checksum-ul 
+-se verifica daca pachetul este destinat router-ului ,caz in care :
+    -se trimite un mesaj ICMP "Echo reply"
+-se cauta adresa IP a pachetului in tabela de rutare folosind functia 'find_in_routebale'.
+In cazul in care nu se gaseste o astfel de intrare in tabel , se trimite un mesaj ICMP "Destination Unreacheable" .
+Prin intermediul intrarii gasite din tabela , se determina next hop si interfata pe care va trebui trimis
+pachetul mai departe.
+-Se cauta in tabela de ARP adresa MAC a urmatorului hop 
+-Se rescriu adresele de nivel 2(adresa sursa devine adresa interfetei routerului pe care e trimis mai departe 
+pachetul,adresa destinatie devine adresa MAC a urmatorului hop determinata la pasul precedent)
+-Se trimite pachetul pe interfata corespunzatoare lui next hop.
+
+Functia 'send_icmp_message' se ocupa de creearea si trimiterea unui mesaj ICMP:
+-Se extrag antetele : ICMP , ETHERNET, IP din pachet
+-Se seteaza datele din antete corespunzator folosind functiile 'setICMPdata','setIPdata' ,'setETHdata'
+    -'setICMPdata' seteaza campurile: type ,code,checksum
+    -'setIPdata' seteaza campurile: checksum,tos,tot_len,frag,version,protocol,ihl,id si interschimba adresele IP sursa si destinatie
+    -'setETHdata' interschimba adresele MAC sursa si destinatie
+-Se trimite pachetul cu mesajul ICMP generat de router catre expeditorul initial al pachetului.
+
+Functia 'find_in_routetable' se ocupa de cautarea in tabela de rutare a unei intrari care contine adresa IP destinatie.
+Tabela a fost deja sortata in functia main , iar Binary Search-ul eficientizeaza cautarea .
+Foloseste Binary Search iterativ pentru a cauta in tabela de rutare adresa respectiva (apartenenta adresei la retea folosind operatia de AND 
+pe biti intre IP si masca).In cazul in care gaseste mai multe potriviri , o alege pe cea cu masca cea mai mare (Longest Prefix Match).
+
+Functia 'get_arp_entry' se ocupa de cautarea in tabela de ARP statica a unei adresei MAC asociate unei adrese IP.
+Tabela a fost sortata in functia main in functie de IP . (Desi nu era necesar , am dorit sa eficientizez cautarea si pentru tabela ARP).
+Foloseste la fel ca la functia precedenta, un algoritm de Binary Search iterativ pentru a cauta adresa IP si intoarce intrarea gasita in tabela.
+
+Functiile 'comparator_arp_table' si 'comparator_route_table' sunt folosite in sortarea tabelelor statice prin qsort.
+Cele doua functii servesc ca si comparatori si compara 2 elemente pe baza adresei IP('comparator_arp_table') , respectiv
+pe baza (prefix&mask) in 'comparator_route_table'.
+
+La finalul functiei main , memoria alocata dinamic este eliberata.
+
+
+
+
